@@ -177,9 +177,12 @@ class Setup(commands.Cog):
             state['panels'][key] = {'channel': str(channel.id), 'id': str(message.id)}
             self.db.set('layout', state)
         self.step = 'preparar o canal AFK'
-        afk = await guild.fetch_channel(int(state['channels']['afk']))
         if not guild.afk_channel and guild.me.guild_permissions.manage_guild:
-            await guild.edit(afk_channel=afk, reason='Setup ROB RUN')
+            afk = discord.Object(id=int(state['channels']['afk']))
+            try:
+                await guild.edit(afk_channel=afk, reason='Setup ROB RUN')
+            except discord.Forbidden:
+                warnings.append('O Discord recusou a associação automática do AFK. Define-o nas configurações do servidor.')
         elif not guild.afk_channel:
             warnings.append('O canal AFK foi criado. A associação automática requer Gerir Servidor.')
         return created, warnings
