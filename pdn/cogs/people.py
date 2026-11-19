@@ -79,7 +79,7 @@ class Entry(View):
             support = discord.ui.Button(label='Abrir ticket', custom_id='pdn:ticket')
             async def support_menu(i):
                 in_guild(i)
-                await reply(i, 'Escolhe o tipo de ticket.', view=cog.bot.get_cog('Support').panel('support'))
+                await reply(i, None, view=cog.bot.get_cog('Support').panel('support'))
             support.callback = support_menu
             self.add_item(support)
 

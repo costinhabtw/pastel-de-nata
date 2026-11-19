@@ -192,9 +192,12 @@ class Management(commands.Cog):
             if channel:
                 try:
                     message = await channel.fetch_message(int(panel['id']))
-                    card = embed(f'PASTEL DE NATA · {PANELS[painel][0]}', texto)
-                    card.set_footer(text=f'PASTEL DE NATA · {painel}')
-                    await message.edit(embed=card)
+                    if painel == 'support':
+                        await self.bot.get_cog('Support').update_panel(message, texto)
+                    else:
+                        card = embed(f'PASTEL DE NATA · {PANELS[painel][0]}', texto)
+                        card.set_footer(text=f'PASTEL DE NATA · {painel}')
+                        await message.edit(embed=card)
                 except discord.NotFound:
                     pass
         self.db.set(f'message:{painel}', texto)

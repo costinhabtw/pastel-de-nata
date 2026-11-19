@@ -13,17 +13,36 @@ TICKET_CATEGORIES = {
     'denuncia': '🚨 TICKETS — DENÚNCIAS',
     'lideranca': '🔒 TICKETS — LIDERANÇA',
 }
+SUPPORT_MENU_ID = 'pdn:ticket:type'
 
-class TicketPanel(View):
-    def __init__(self, cog):
-        super().__init__()
-        menu = discord.ui.Select(custom_id='pdn:ticket:type', placeholder='Escolhe o assunto',
-            options=[discord.SelectOption(label=label, value=key) for key, label in TYPES.items()])
+class TicketPanel(discord.ui.LayoutView):
+    def __init__(self, cog, description):
+        super().__init__(timeout=None)
+        details = {
+            'geral': 'Dúvidas e ajuda com o servidor',
+            'recrutamento': 'Candidaturas e entrada no clã',
+            'denuncia': 'Comunicar um incidente em privado',
+            'lideranca': 'Falar em privado com a liderança',
+        }
+        menu = discord.ui.Select(custom_id=SUPPORT_MENU_ID, placeholder='Abre um ticket · escolhe o assunto',
+            options=[discord.SelectOption(label=label.split(' ', 1)[1], emoji=label.split(' ', 1)[0],
+                                          description=details[key], value=key)
+                     for key, label in TYPES.items()])
         async def callback(i):
+            kind = menu.values[0]
             await i.response.defer(ephemeral=True, thinking=True)
-            await cog.open_ticket(i, menu.values[0])
+            await cog.open_ticket(i, kind)
         menu.callback = callback
-        self.add_item(menu)
+        self.add_item(discord.ui.Container(
+            discord.ui.TextDisplay(f'## 🎫 Suporte ROB RUN\n{description}'),
+            discord.ui.Separator(),
+            discord.ui.ActionRow(menu),
+            accent_colour=discord.Colour(0xe6a43b),
+        ))
+
+    async def on_error(self, interaction, error, item):
+        await reply(interaction, str(error) if isinstance(error, UserError) else
+                    'Não foi possível abrir o ticket. Tenta novamente.')
 
 class CloseForm(discord.ui.Modal, title='Fechar ticket'):
     reason = discord.ui.TextInput(label='Motivo', max_length=300, style=discord.TextStyle.paragraph)
@@ -62,8 +81,21 @@ class Support(commands.Cog):
         self.bot.add_view(TicketActions(self))
         self.bot.add_view(self.panel('support'))
 
-    def panel(self, key):
-        return TicketPanel(self)
+    def panel(self, key, description=None):
+        if description is None:
+            description = self.db.setting('message:support', 'Escolhe um assunto para abrir um ticket privado.')
+        return TicketPanel(self, description)
+
+    @staticmethod
+    def is_card(message):
+        def has_menu(component):
+            return getattr(component, 'custom_id', None) == SUPPORT_MENU_ID or any(
+                has_menu(child) for child in getattr(component, 'children', ()))
+        return any(isinstance(component, discord.Container) and has_menu(component)
+                   for component in message.components)
+
+    async def update_panel(self, message, description=None):
+        await message.edit(content=None, embed=None, attachments=[], view=self.panel('support', description))
 
     def responders(self, guild, kind):
         chosen = self.db.setting('ticket_roles', {}).get(kind)

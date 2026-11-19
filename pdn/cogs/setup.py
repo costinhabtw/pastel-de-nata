@@ -184,15 +184,22 @@ class Setup(commands.Cog):
             if message is None:
                 marker = f'PASTEL DE NATA · {key}'
                 async for candidate in channel.history(limit=30):
-                    if candidate.author.id == guild.me.id and any(card.footer.text == marker for card in candidate.embeds):
+                    if candidate.author.id == guild.me.id and (
+                        any(card.footer.text == marker for card in candidate.embeds)
+                        or (key == 'support' and support.is_card(candidate))
+                    ):
                         message = candidate
                         break
             if message is None:
-                card = embed(f'PASTEL DE NATA · {title}', self.db.setting(f'message:{key}', description))
-                card.set_footer(text=f'PASTEL DE NATA · {key}')
-                cog = self.bot.get_cog('Support' if key == 'support' else 'People')
-                message = await channel.send(embed=card, view=cog.panel(key))
+                if key == 'support':
+                    message = await channel.send(view=support.panel(key))
+                else:
+                    card = embed(f'PASTEL DE NATA · {title}', self.db.setting(f'message:{key}', description))
+                    card.set_footer(text=f'PASTEL DE NATA · {key}')
+                    message = await channel.send(embed=card, view=self.bot.get_cog('People').panel(key))
                 created += 1
+            elif key == 'support' and message.author.id == guild.me.id and not support.is_card(message):
+                await support.update_panel(message)
             state['panels'][key] = {'channel': str(channel.id), 'id': str(message.id)}
             self.db.set('layout', state)
         self.step = 'preparar o canal AFK'

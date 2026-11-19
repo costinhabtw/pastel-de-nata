@@ -117,7 +117,13 @@ class SimulatedDiscordTests(unittest.IsolatedAsyncioTestCase):
         for command in self.bot.tree.get_commands():
             self.assertEqual(command.to_dict(self.bot.tree)['name'], command.name)
         self.assertTrue(self.bot.get_cog('People').panel('legacy').is_persistent())
-        self.assertTrue(self.bot.get_cog('Support').panel('support').is_persistent())
+        panel = self.bot.get_cog('Support').panel('support')
+        self.assertTrue(panel.is_persistent())
+        container, = panel.to_components()
+        self.assertEqual(container['type'], 17)
+        menu = container['components'][-1]['components'][0]
+        self.assertEqual(menu['custom_id'], 'pdn:ticket:type')
+        self.assertEqual(len(menu['options']), 4)
         self.assertEqual(len(ApplicationForm(self.bot.get_cog('People')).children), 5)
         self.assertEqual(Vote('42', 'sim').item.custom_id, 'pdn:vote:42:sim')
 
@@ -208,8 +214,15 @@ class SimulatedDiscordTests(unittest.IsolatedAsyncioTestCase):
                 for message in self.messages.values():
                     yield message
 
-            async def send(self, *, embed, view):
-                message = SimpleNamespace(id=next(sequence), author=bot_member, embeds=[embed])
+            async def send(self, *, embed=None, view):
+                from discord.components import _component_factory
+                components = [_component_factory(component) for component in view.to_components()]
+                message = SimpleNamespace(id=next(sequence), author=bot_member, components=components,
+                                          embeds=[embed] if embed is not None else [])
+                async def edit(*, content, embed, attachments, view):
+                    message.embeds = []
+                    message.components = [_component_factory(component) for component in view.to_components()]
+                message.edit = AsyncMock(side_effect=edit)
                 self.messages[message.id] = message
                 return message
 
@@ -261,6 +274,14 @@ class SimulatedDiscordTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(all(category.overwrites[guild.default_role].view_channel is False
                                 for category in categories[-4:]))
             self.assertEqual((await provision(guild))[0], 0)
+            support = self.db.setting('layout')['panels']['support']
+            original = channels[int(support['channel'])].messages[int(support['id'])]
+            original.components = []
+            self.assertEqual((await provision(guild))[0], 0)
+            original.edit.assert_awaited_once()
+            self.assertTrue(self.bot.get_cog('Support').is_card(original))
+            self.assertEqual((await provision(guild))[0], 0)
+            original.edit.assert_awaited_once()
             panel = self.db.setting('layout')['panels']['verification']
             channels[int(panel['channel'])].messages.clear()
             self.assertEqual((await provision(guild))[0], 1)
