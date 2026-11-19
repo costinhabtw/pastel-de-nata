@@ -85,12 +85,17 @@ Preenche `DISCORD_TOKEN` e `DISCORD_GUILD_ID=1572718581505065060`. O serviço gu
 A partir da pasta do Compose, sincroniza primeiro os ficheiros do repositório. Para o contentor antes de copiar os dados. Mantém o volume Docker para recuperação. Estes passos assumem que ainda não existe uma base de dados de destino.
 
 ```sh
-git pull --ff-only
-docker compose stop bot
-sudo bash scripts/install.sh
-test ! -e /var/lib/pastel-de-nata/pastel.sqlite
-docker compose cp bot:/app/data/. /var/lib/pastel-de-nata/
+git pull --ff-only &&
+sudo test ! -e /var/lib/pastel-de-nata/pastel.sqlite &&
+docker compose stop bot &&
+sudo bash scripts/install.sh &&
+docker compose cp bot:/app/data/. /var/lib/pastel-de-nata/ &&
 sudo chown -R pastel-de-nata:pastel-de-nata /var/lib/pastel-de-nata
+```
+
+Se o bloco anterior terminar com sucesso, configura o token válido no ficheiro do serviço sem o introduzir na linha de comandos:
+
+```sh
 sudoedit /etc/pastel-de-nata/bot.env
 sudo bash scripts/install.sh
 sudo journalctl -u pastel-de-nata -n 50 --no-pager

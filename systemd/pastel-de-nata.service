@@ -9,9 +9,8 @@ User=pastel-de-nata
 Group=pastel-de-nata
 WorkingDirectory=/opt/pastel-de-nata
 EnvironmentFile=/etc/pastel-de-nata/bot.env
-Environment=DATA_DIR=/var/lib/pastel-de-nata
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/opt/pastel-de-nata/.venv/bin/python /opt/pastel-de-nata/bot.py
+ExecStart=/usr/bin/env DATA_DIR=/var/lib/pastel-de-nata /opt/pastel-de-nata/.venv/bin/python /opt/pastel-de-nata/bot.py
 Restart=on-failure
 RestartSec=10
 UMask=0077
