@@ -1,4 +1,5 @@
 from contextlib import closing
+from datetime import datetime, timezone
 import sqlite3
 import sys
 import tempfile
@@ -10,12 +11,26 @@ from unittest.mock import AsyncMock, patch
 from bot import COGS, Pastel
 from pdn.common import UserError, millis, parse_time
 from pdn.cogs.activities import Vote
+from pdn.cogs.management import welcome_card
 from pdn.cogs.people import ApplicationForm
 from pdn.cogs.setup import LAYOUT
 from pdn.cogs.support import TICKET_CATEGORIES
 from pdn.db import Database, MIGRATIONS
 
 class DatabaseTests(unittest.TestCase):
+    def test_welcome_card_preserves_text_and_verification_link(self):
+        guild = SimpleNamespace(name='PASTEL DE NATA | ROB RUN', member_count=22, icon=None)
+        member = SimpleNamespace(guild=guild, name='rob_run', mention='<@42>',
+                                 created_at=datetime(2023, 11, 1, tzinfo=timezone.utc),
+                                 display_avatar=SimpleNamespace(url='https://cdn.discordapp.com/embed/avatars/0.png'))
+        card = welcome_card(member, 'Bem-vindo ao clã!', 43)
+        self.assertEqual(card.title, '👋 Novo membro!')
+        self.assertIn('<#43>', card.description)
+        self.assertIn('Bem-vindo ao clã!', card.description)
+        self.assertEqual(card.fields[2].value, '22')
+        self.assertTrue(card.fields[1].value.endswith(':R>'))
+        self.assertEqual(card.thumbnail.url, member.display_avatar.url)
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)

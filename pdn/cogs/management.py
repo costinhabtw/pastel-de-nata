@@ -12,6 +12,24 @@ from pdn.cogs.people import QUESTIONS
 from pdn.cogs.setup import PANELS
 from pdn.cogs.support import TYPES
 
+def welcome_card(member, message, verification_channel=None):
+    guild = member.guild
+    description = f'{member.mention} {message}'
+    if verification_channel:
+        description += f'\n\nPara começares, verifica-te em <#{verification_channel}>.'
+    card = embed('👋 Novo membro!', description)
+    card.colour = discord.Colour.green()
+    card.set_thumbnail(url=member.display_avatar.url)
+    card.add_field(name='Membro', value=f'{member.mention}\n{discord.utils.escape_markdown(member.name)}')
+    card.add_field(name='Conta criada', value=discord.utils.format_dt(member.created_at, style='R'))
+    total = guild.member_count
+    card.add_field(name='Total de membros', value=str(total) if total is not None else 'Indisponível')
+    if guild.icon:
+        card.set_footer(text=guild.name, icon_url=guild.icon.url)
+    else:
+        card.set_footer(text=guild.name)
+    return card
+
 class SuggestionVote(discord.ui.DynamicItem[discord.ui.Button], template=r'pdn:suggestion:(?P<id>[0-9]+):(?P<vote>yes|no)'):
     def __init__(self, identifier, vote):
         self.identifier, self.vote = identifier, vote
@@ -292,10 +310,9 @@ class Management(commands.Cog):
         channel = member.guild.get_channel(int(channel_id or 0))
         if isinstance(channel, discord.TextChannel):
             verify = self.db.setting('layout', {}).get('channels', {}).get('verification')
-            suffix = f' Visita <#{verify}> para te verificares.' if verify else ''
             try:
-                await channel.send(member.mention + ' ' + self.db.setting('message:welcome', 'Bem-vindo ao PASTEL DE NATA!') + suffix,
-                                   allowed_mentions=discord.AllowedMentions(users=[member], roles=False, everyone=False))
+                message = self.db.setting('message:welcome', 'Bem-vindo ao **PASTEL DE NATA | ROB RUN**! Fica à vontade.')
+                await channel.send(embed=welcome_card(member, message, verify))
             except discord.HTTPException:
                 pass
 
