@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from pdn.common import RANKS, UserError, admin, audit, embed, reply
+from pdn.common import RANKS, UserError, admin, audit, embed, log, reply
 
 # Cada entrada define a identidade persistente, nome Discord e audiência.
 LAYOUT = {
@@ -88,7 +88,20 @@ class Setup(commands.Cog):
         admin(i)
         await i.response.defer(ephemeral=True)
         async with self.lock:
-            created, warnings = await self.provision(i.guild)
+            self.step = 'verificar permissões'
+            try:
+                created, warnings = await self.provision(i.guild)
+            except discord.HTTPException as error:
+                log.warning('Setup interrompido em %s (HTTP %s, Discord %s)',
+                            self.step, error.status, error.code)
+                raise UserError(
+                    f'O Discord interrompeu o setup ao {self.step}. '
+                    f'Código HTTP {error.status}, Discord {error.code}. '
+                    'O progresso foi guardado.'
+                ) from error
+            except Exception:
+                log.exception('Setup interrompido em %s', self.step)
+                raise
         await audit(self.bot, i.guild, 'Setup', f'{created} componente(s) criados', i.user.id)
         suffix = '\n' + '\n'.join(warnings) if warnings else ''
         await reply(i, f'Configuração concluída. {created} componente(s) criado(s) ou recuperado(s).{suffix}')
@@ -106,6 +119,7 @@ class Setup(commands.Cog):
                                         moderate_members=True, manage_webhooks=True, manage_messages=True)
         for rank, icon, colour in zip(RANKS, ICONS, COLOURS):
             name = f'{icon} {rank}'
+            self.step = f'preparar o cargo {name}'
             role = find(guild.roles, state['roles'].get(rank), name)
             if role is None:
                 role = await guild.create_role(name=name, colour=discord.Colour(colour), reason='Setup ROB RUN')
@@ -116,6 +130,7 @@ class Setup(commands.Cog):
             state['roles'][rank] = str(role.id)
             self.db.set('layout', state)
         for name, definitions in LAYOUT.items():
+            self.step = f'preparar a categoria {name}'
             category = find(guild.categories, state['categories'].get(name), name)
             if category is None:
                 category = await guild.create_category(name, overwrites=overwrites(guild, role_map, 'staff' if name.startswith('🔒') else 'public_read'), reason='Setup ROB RUN')
@@ -123,6 +138,7 @@ class Setup(commands.Cog):
             state['categories'][name] = str(category.id)
             self.db.set('layout', state)
             for key, label, audience in definitions:
+                self.step = f'preparar o canal {label}'
                 voice = name.startswith('🔊')
                 expected = discord.VoiceChannel if voice else discord.TextChannel
                 channels = [channel for channel in category.channels if isinstance(channel, expected)]
@@ -137,6 +153,7 @@ class Setup(commands.Cog):
                 state['channels'][key] = str(channel.id)
                 self.db.set('layout', state)
         for key, (title, description) in PANELS.items():
+            self.step = f'publicar o painel {title}'
             channel = await guild.fetch_channel(int(state['channels'][key]))
             previous = state['panels'].get(key, {})
             message = None
@@ -159,6 +176,7 @@ class Setup(commands.Cog):
                 created += 1
             state['panels'][key] = {'channel': str(channel.id), 'id': str(message.id)}
             self.db.set('layout', state)
+        self.step = 'preparar o canal AFK'
         afk = await guild.fetch_channel(int(state['channels']['afk']))
         if not guild.afk_channel and guild.me.guild_permissions.manage_guild:
             await guild.edit(afk_channel=afk, reason='Setup ROB RUN')
