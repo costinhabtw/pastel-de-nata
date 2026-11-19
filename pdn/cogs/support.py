@@ -14,6 +14,11 @@ TICKET_CATEGORIES = {
     'lideranca': '🔒 TICKETS — LIDERANÇA',
 }
 SUPPORT_MENU_ID = 'pdn:ticket:type'
+SUPPORT_PLACEHOLDER = 'Abrir ticket'
+SUPPORT_DESCRIPTION = 'A equipa responde no teu canal privado.'
+
+def support_heading(description):
+    return f'### Suporte ROB RUN\n{description}'
 
 class TicketPanel(discord.ui.LayoutView):
     def __init__(self, cog, description):
@@ -24,7 +29,7 @@ class TicketPanel(discord.ui.LayoutView):
             'denuncia': 'Comunicar um incidente em privado',
             'lideranca': 'Falar em privado com a liderança',
         }
-        menu = discord.ui.Select(custom_id=SUPPORT_MENU_ID, placeholder='Abre um ticket · escolhe o assunto',
+        menu = discord.ui.Select(custom_id=SUPPORT_MENU_ID, placeholder=SUPPORT_PLACEHOLDER,
             options=[discord.SelectOption(label=label.split(' ', 1)[1], emoji=label.split(' ', 1)[0],
                                           description=details[key], value=key)
                      for key, label in TYPES.items()])
@@ -34,8 +39,7 @@ class TicketPanel(discord.ui.LayoutView):
             await cog.open_ticket(i, kind)
         menu.callback = callback
         self.add_item(discord.ui.Container(
-            discord.ui.TextDisplay(f'## 🎫 Suporte ROB RUN\n{description}'),
-            discord.ui.Separator(),
+            discord.ui.TextDisplay(support_heading(description)),
             discord.ui.ActionRow(menu),
             accent_colour=discord.Colour(0xe6a43b),
         ))
@@ -83,7 +87,7 @@ class Support(commands.Cog):
 
     def panel(self, key, description=None):
         if description is None:
-            description = self.db.setting('message:support', 'Escolhe um assunto para abrir um ticket privado.')
+            description = self.db.setting('message:support', SUPPORT_DESCRIPTION)
         return TicketPanel(self, description)
 
     @staticmethod
@@ -93,6 +97,20 @@ class Support(commands.Cog):
                 has_menu(child) for child in getattr(component, 'children', ()))
         return any(isinstance(component, discord.Container) and has_menu(component)
                    for component in message.components)
+
+    def is_current_panel(self, message):
+        heading = support_heading(self.db.setting('message:support', SUPPORT_DESCRIPTION))
+        for component in message.components:
+            if not isinstance(component, discord.Container) or len(component.children) != 2:
+                continue
+            text, row = component.children
+            if (getattr(text, 'content', None) == heading and any(
+                getattr(item, 'custom_id', None) == SUPPORT_MENU_ID
+                and getattr(item, 'placeholder', None) == SUPPORT_PLACEHOLDER
+                for item in getattr(row, 'children', ())
+            )):
+                return True
+        return False
 
     async def update_panel(self, message, description=None):
         await message.edit(content=None, embed=None, attachments=[], view=self.panel('support', description))

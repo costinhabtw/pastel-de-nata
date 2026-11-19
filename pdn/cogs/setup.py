@@ -198,7 +198,7 @@ class Setup(commands.Cog):
                     card.set_footer(text=f'PASTEL DE NATA · {key}')
                     message = await channel.send(embed=card, view=self.bot.get_cog('People').panel(key))
                 created += 1
-            elif key == 'support' and message.author.id == guild.me.id and not support.is_card(message):
+            elif key == 'support' and message.author.id == guild.me.id and not support.is_current_panel(message):
                 await support.update_panel(message)
             state['panels'][key] = {'channel': str(channel.id), 'id': str(message.id)}
             self.db.set('layout', state)

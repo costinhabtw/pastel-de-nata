@@ -121,8 +121,10 @@ class SimulatedDiscordTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(panel.is_persistent())
         container, = panel.to_components()
         self.assertEqual(container['type'], 17)
+        self.assertEqual(len(container['components']), 2)
         menu = container['components'][-1]['components'][0]
         self.assertEqual(menu['custom_id'], 'pdn:ticket:type')
+        self.assertEqual(menu['placeholder'], 'Abrir ticket')
         self.assertEqual(len(menu['options']), 4)
         self.assertEqual(len(ApplicationForm(self.bot.get_cog('People')).children), 5)
         self.assertEqual(Vote('42', 'sim').item.custom_id, 'pdn:vote:42:sim')
@@ -282,6 +284,10 @@ class SimulatedDiscordTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(self.bot.get_cog('Support').is_card(original))
             self.assertEqual((await provision(guild))[0], 0)
             original.edit.assert_awaited_once()
+            original.components[0].children[0].content = '## 🎫 Suporte ROB RUN'
+            self.assertEqual((await provision(guild))[0], 0)
+            self.assertEqual(original.edit.await_count, 2)
+            self.assertTrue(self.bot.get_cog('Support').is_current_panel(original))
             panel = self.db.setting('layout')['panels']['verification']
             channels[int(panel['channel'])].messages.clear()
             self.assertEqual((await provision(guild))[0], 1)
