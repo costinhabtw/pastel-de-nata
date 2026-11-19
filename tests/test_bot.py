@@ -1,5 +1,6 @@
 from contextlib import closing
 import sqlite3
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -67,6 +68,20 @@ class DatabaseTests(unittest.TestCase):
         for value in ('2026-02-31T12:00+00:00', '2026-08-01T22:00'):
             with self.assertRaises(UserError):
                 parse_time(value)
+
+    def test_backup_snapshots_an_open_wal_database(self):
+        db = self.open()
+        db.set('snapshot', 'persistido')
+        output = self.path.parent / 'backups'
+        output.mkdir()
+        script = (Path(__file__).resolve().parents[1] / 'scripts' / 'backup.sh').read_text()
+        program = script.split("<<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+        with patch.object(sys, 'argv', ['backup.sh', str(self.path), str(output)]), patch('builtins.print'):
+            exec(compile(program, 'scripts/backup.sh', 'exec'), {})
+        saved = next(output.glob('*.sqlite'))
+        with closing(sqlite3.connect(saved)) as backup:
+            self.assertEqual(backup.execute("SELECT value FROM settings WHERE key='snapshot'").fetchone()[0],
+                             '"persistido"')
 
 class SimulatedDiscordTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):

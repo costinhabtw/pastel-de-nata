@@ -26,5 +26,7 @@ if ! .venv/bin/python -m pip install -r requirements.txt || ! .venv/bin/python -
     echo 'A atualização falhou nos testes. Foi reposto o código anterior.' >&2
     exit 1
 fi
+install -m 0644 systemd/pastel-de-nata.service /etc/systemd/system/pastel-de-nata.service
+systemctl daemon-reload
 systemctl restart pastel-de-nata
 systemctl status pastel-de-nata --no-pager
