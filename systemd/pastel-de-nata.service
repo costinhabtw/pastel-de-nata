@@ -1,0 +1,26 @@
+[Unit]
+Description=PASTEL DE NATA BOT | ROB RUN
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=pastel-de-nata
+Group=pastel-de-nata
+WorkingDirectory=/opt/pastel-de-nata
+EnvironmentFile=/etc/pastel-de-nata/bot.env
+Environment=DATA_DIR=/var/lib/pastel-de-nata
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/pastel-de-nata/.venv/bin/python /opt/pastel-de-nata/bot.py
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StateDirectory=pastel-de-nata
+StateDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target
