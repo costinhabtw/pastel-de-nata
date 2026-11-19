@@ -7,6 +7,12 @@ from pdn.common import RANKS, UserError, View, audit, embed, in_guild, module_en
 
 TYPES = {'geral': '💬 Suporte geral', 'recrutamento': '📝 Recrutamento',
          'denuncia': '🚨 Denúncia', 'lideranca': '🔒 Contactar liderança'}
+TICKET_CATEGORIES = {
+    'geral': '🎫 TICKETS — SUPORTE GERAL',
+    'recrutamento': '📝 TICKETS — RECRUTAMENTO',
+    'denuncia': '🚨 TICKETS — DENÚNCIAS',
+    'lideranca': '🔒 TICKETS — LIDERANÇA',
+}
 
 class TicketPanel(View):
     def __init__(self, cog):
@@ -94,8 +100,11 @@ class Support(commands.Cog):
                     return await reply(i, f"Já tens um ticket aberto em <#{previous['channel']}>.")
                 self.db.run('UPDATE tickets SET closed=1 WHERE channel=?', previous['channel'])
             config = self.db.setting('guild', {})
-            layout = self.db.setting('layout', {}).get('categories', {})
-            category = guild.get_channel(int(layout.get('🎫 SUPORTE') or config.get('tickets') or 0))
+            layout = self.db.setting('layout', {})
+            category_id = layout.get('ticket_categories', {}).get(kind)
+            if not category_id:
+                category_id = layout.get('categories', {}).get('🎫 SUPORTE') or config.get('tickets')
+            category = guild.get_channel(int(category_id or 0))
             if not isinstance(category, discord.CategoryChannel):
                 raise UserError('Um administrador tem de executar /setup.')
             access = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)

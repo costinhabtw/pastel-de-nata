@@ -12,6 +12,7 @@ from pdn.common import UserError, millis, parse_time
 from pdn.cogs.activities import Vote
 from pdn.cogs.people import ApplicationForm
 from pdn.cogs.setup import LAYOUT
+from pdn.cogs.support import TICKET_CATEGORIES
 from pdn.db import Database, MIGRATIONS
 
 class DatabaseTests(unittest.TestCase):
@@ -175,6 +176,9 @@ class SimulatedDiscordTests(unittest.IsolatedAsyncioTestCase):
             def __ge__(self, other):
                 return self.id >= other.id
 
+            def is_default(self):
+                return self.id == 1
+
         class Text:
             def __init__(self, id, name):
                 self.id, self.name, self.messages = id, name, {}
@@ -219,7 +223,9 @@ class SimulatedDiscordTests(unittest.IsolatedAsyncioTestCase):
             return role
 
         async def create_category(name, **kwargs):
-            category = SimpleNamespace(id=next(sequence), name=name, channels=[])
+            category = SimpleNamespace(id=next(sequence), name=name, channels=[],
+                                       position=kwargs.get('position', len(categories)),
+                                       overwrites=kwargs.get('overwrites', {}))
             categories.append(category)
             return category
 
@@ -227,13 +233,18 @@ class SimulatedDiscordTests(unittest.IsolatedAsyncioTestCase):
             return channels[id]
 
         guild = SimpleNamespace(me=bot_member, default_role=Role(1,'everyone'), roles=roles, categories=categories, afk_channel=None,
+            get_role=lambda id: next((role for role in roles if role.id == id), None),
             create_role=create_role, create_category=create_category, get_channel=channels.get,
             fetch_channel=fetch_channel, create_text_channel=create_channel(Text), create_voice_channel=create_channel(Voice))
         provision = self.bot.get_cog('Setup').provision
         with patch.object(discord, 'TextChannel', Text), patch.object(discord, 'VoiceChannel', Voice):
             created, _ = await provision(guild)
-            expected = 7 + len(LAYOUT) + sum(map(len, LAYOUT.values())) + 3
+            expected = 7 + len(LAYOUT) + sum(map(len, LAYOUT.values())) + 3 + len(TICKET_CATEGORIES)
             self.assertEqual(created, expected)
+            self.assertEqual([category.name for category in categories[-4:]], list(TICKET_CATEGORIES.values()))
+            self.assertTrue(all(category.position > categories[-5].position for category in categories[-4:]))
+            self.assertTrue(all(category.overwrites[guild.default_role].view_channel is False
+                                for category in categories[-4:]))
             self.assertEqual((await provision(guild))[0], 0)
             panel = self.db.setting('layout')['panels']['verification']
             channels[int(panel['channel'])].messages.clear()

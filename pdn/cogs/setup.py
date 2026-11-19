@@ -5,6 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from pdn.common import RANKS, UserError, admin, audit, embed, log, reply
+from pdn.cogs.support import TICKET_CATEGORIES
 
 # Cada entrada define a identidade persistente, nome Discord e audiência.
 LAYOUT = {
@@ -27,7 +28,7 @@ LAYOUT = {
         ('applications_state', '📬︱estado-candidaturas', 'verified'),
     ],
     '🎫 SUPORTE': [
-        ('support', '🎟️︱abrir-ticket', 'public_read'), ('tickets_state', '📁︱tickets-abertos', 'staff'),
+        ('support', '🎟️︱abrir-ticket', 'public_read'),
     ],
     '🔒 LIDERANÇA': [
         ('leadership', '💬︱chat-liderança', 'staff'), ('records', '📑︱registos', 'staff'),
@@ -110,7 +111,7 @@ class Setup(commands.Cog):
         if not guild.me.guild_permissions.manage_roles or not guild.me.guild_permissions.manage_channels:
             raise UserError('Dá ao bot permissões para gerir cargos e canais.')
         state = self.db.setting('layout', {})
-        for field in ('roles', 'channels', 'categories', 'panels'):
+        for field in ('roles', 'channels', 'categories', 'panels', 'ticket_categories'):
             state.setdefault(field, {})
         created, warnings = 0, []
         role_map = {}
@@ -152,6 +153,24 @@ class Setup(commands.Cog):
                     created += 1
                 state['channels'][key] = str(channel.id)
                 self.db.set('layout', state)
+        support = self.bot.get_cog('Support')
+        position = max((category.position for category in guild.categories), default=-1) + 1
+        for kind, label in TICKET_CATEGORIES.items():
+            self.step = f'preparar a categoria {label}'
+            category = find(guild.categories, state['ticket_categories'].get(kind), label)
+            if category is None:
+                access = discord.PermissionOverwrite(view_channel=True, read_message_history=True, send_messages=True)
+                permissions = {
+                    guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                    guild.me: access,
+                    **{role: access for role in support.responders(guild, kind)},
+                }
+                category = await guild.create_category(label, position=position, overwrites=permissions,
+                                                       reason='Categorias de tickets ROB RUN')
+                position += 1
+                created += 1
+            state['ticket_categories'][kind] = str(category.id)
+            self.db.set('layout', state)
         for key, (title, description) in PANELS.items():
             self.step = f'publicar o painel {title}'
             channel = await guild.fetch_channel(int(state['channels'][key]))

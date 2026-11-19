@@ -125,7 +125,7 @@ Os backups usam a API de cópia consistente da SQLite em `/var/backups/pastel-de
 - `/membros`, `/registar`, `/perfil`, `/promover`, `/despromover`, `/expulsar` e `/historico` gerem o registo de membros. A expulsão de clã retira a patente e preserva o acesso de visitante.
 - `/atividade criar` recebe início e limite de votação em ISO 8601, com `+00:00` no inverno ou `+01:00` no verão em Lisboa. Seleciona até três cargos. Só participam membros convocados que consigam ver o canal. O trabalhador fecha votações atrasadas depois de um reinício e publica um resumo privado. As notificações são tentadas uma vez por destinatário e fase. Uma interrupção após registar a tentativa pode impedir a entrega, para evitar duplicados.
 - `/recurso configurar` cria ou renomeia materiais. Os depósitos e levantamentos guardam um movimento auditável na mesma transação do saldo.
-- Os tickets têm quatro tipos, responsáveis configuráveis, atribuição e encerramento com motivo. O histórico fica no canal privado arquivado.
+- Os tickets têm quatro tipos, cada um com uma categoria privada no fundo do servidor. O painel de abertura fica em Suporte. Executa `/setup` após atualizar para criar as categorias. Os tickets existentes mantêm o canal e o histórico. A equipa pode assumir e fechar tickets com motivo.
 - `/warn`, `/warnings`, `/timeout`, `/kick`, `/ban` e `/unban` respeitam permissões nativas. O bot regista metadados de mensagens editadas e eliminadas, sem arquivar o conteúdo. `/anuncio`, `/sugestao` e `/status` completam as operações da comunidade.
 
 ### Testes da versão Python
